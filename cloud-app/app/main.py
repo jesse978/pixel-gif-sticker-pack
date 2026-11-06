@@ -90,6 +90,14 @@ def create_app(settings: Settings | None = None, provider=None):
     image_provider = provider or OpenAIImageProvider(settings)
     runtime = None
 
+    def is_expired(job, now=None):
+        return job.created + settings.ttl_seconds <= (time.time() if now is None else now)
+
+    def live_jobs(owner=None):
+        now = time.time()
+        return [job for job in jobs.values()
+                if not is_expired(job, now) and (owner is None or job.owner == owner)]
+
     async def remove_job(job):
         if job.task and not job.task.done():
             job.task.cancel()
@@ -102,7 +110,7 @@ def create_app(settings: Settings | None = None, provider=None):
         while True:
             await asyncio.sleep(30)
             for job in list(jobs.values()):
-                if time.time() - job.created > settings.ttl_seconds:
+                if is_expired(job):
                     await remove_job(job)
 
     @asynccontextmanager
@@ -141,7 +149,9 @@ def create_app(settings: Settings | None = None, provider=None):
         if length > MAX_REQUEST:
             return JSONResponse({"detail": "上传内容太大，照片最大 10 MB。"}, status_code=413)
         response = await call_next(request)
-        if fresh:
+        # Renew the existing owner on API activity so a late-created job retains
+        # its full access window. Job/file expiry is independent and never renewed.
+        if fresh or request.url.path.startswith("/api/"):
             response.set_cookie("sticker_session", owner, httponly=True, samesite="strict", secure=settings.secure_cookie, max_age=settings.ttl_seconds + 300)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -163,7 +173,7 @@ def create_app(settings: Settings | None = None, provider=None):
         job = jobs.get(job_id)
         if not job or not secrets.compare_digest(job.owner, request.state.owner):
             raise HTTPException(404, "任务不存在或已过期，请重新生成。")
-        if time.time() - job.created > settings.ttl_seconds:
+        if is_expired(job):
             raise HTTPException(410, "任务已过期。")
         return job
 
@@ -180,15 +190,17 @@ def create_app(settings: Settings | None = None, provider=None):
             "manifest_url": base + "manifest" if "manifest" in job.files else None,
             "verification": job.report,
             "expires_at": job.created + settings.ttl_seconds,
+            "expires_in_seconds": max(0, job.created + settings.ttl_seconds - time.time()),
         }
 
     def new_job(request, options, mode):
-        owned = [j for j in jobs.values() if j.owner == request.state.owner]
+        retained = live_jobs()
+        owned = [j for j in retained if j.owner == request.state.owner]
         if any(j.status not in TERMINAL for j in owned):
             raise HTTPException(409, "请先完成或清除当前任务。")
-        if len(owned) >= 4 or len(jobs) >= settings.max_stored_jobs:
+        if len(owned) >= 4 or len(retained) >= settings.max_stored_jobs:
             raise HTTPException(429, "保留的任务已达到上限，请清除旧任务后再试。")
-        if sum(j.status not in TERMINAL for j in jobs.values()) >= settings.max_active_jobs:
+        if sum(j.status not in TERMINAL for j in retained) >= settings.max_active_jobs:
             raise HTTPException(429, "服务正在处理其他任务，请稍后再试。")
         job_id = secrets.token_urlsafe(18)
         folder = Path(runtime.name) / job_id
@@ -252,10 +264,11 @@ def create_app(settings: Settings | None = None, provider=None):
 
     @app.get("/api/config")
     async def configuration(request: Request):
-        owned = [j for j in jobs.values() if j.owner == request.state.owner]
+        owned = live_jobs(request.state.owner)
         latest = max(owned, key=lambda j: j.created) if owned else None
         return {"provider_configured": bool(settings.api_key), "provider_host": settings.provider_host,
                 "model": settings.model, "ttl_minutes": settings.ttl_seconds // 60,
+                "ttl_seconds": settings.ttl_seconds,
                 "expressions": EXPRESSIONS, "latest_job": public_job(latest) if latest else None,
                 "upstream": json.loads((ROOT / "UPSTREAM.json").read_text()),
                 "max_count": 8, "max_upload_mb": 10}

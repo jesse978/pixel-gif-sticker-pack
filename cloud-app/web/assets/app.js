@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const state = { config: null, mode: 'photo', file: null, localUrl: null, job: null, submitting: false, timer: null, toastTimer: null, format: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'png' : 'gif' };
+const state = { config: null, mode: 'photo', file: null, localUrl: null, job: null, submitting: false, timer: null, expiryTimer: null, toastTimer: null, format: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'png' : 'gif' };
 const initialIds = ['happy', 'ok', 'love', 'cry', 'tired', 'shock'];
 const samples = [
   { id: 'happy', caption: '开心起飞' }, { id: 'ok', caption: '收到' },
@@ -176,6 +176,32 @@ function setSteps(step) {
   });
 }
 
+function scheduleExpiry(job) {
+  clearTimeout(state.expiryTimer);
+  if (!job || !Number.isFinite(job.expires_in_seconds)) return;
+  const id = job.id;
+  const check = async () => {
+    if (state.job?.id !== id) return;
+    try {
+      const current = await api(`/api/jobs/${id}`);
+      if (state.job?.id !== id) return;
+      renderJob(current);
+    } catch (error) {
+      if (state.job?.id !== id) return;
+      if ([404, 410].includes(error.status)) {
+        clearTimeout(state.timer);
+        renderJob(null);
+        toast('任务已过期或被清除，请重新制作。');
+      } else {
+        state.expiryTimer = setTimeout(check, 5000);
+      }
+    }
+  };
+  // Use server-relative lifetime rather than the device's wall clock. Confirm
+  // expiry with the server; activity must not extend the stored files' lifetime.
+  state.expiryTimer = setTimeout(check, Math.max(25, Math.ceil(job.expires_in_seconds * 1000) + 25));
+}
+
 function renderJob(job) {
   const previous = state.job;
   if (job && previous?.id !== job.id) {
@@ -191,6 +217,13 @@ function renderJob(job) {
     $('motion').value = job.options.motion;
   }
   state.job = job;
+  scheduleExpiry(job);
+  if (!job && previous) {
+    $('sticker-dialog').close();
+    $('large-sticker').removeAttribute('src');
+    $('sticker-downloads').replaceChildren();
+    $('atlas-preview').removeAttribute('src');
+  }
   $('error-box').hidden = !job?.error;
   $('error-box').textContent = job?.error || '';
   const waiting = job && ['generating', 'exporting'].includes(job.status);
@@ -282,6 +315,12 @@ async function initialize() {
     $('connection-summary').textContent = configured ? '服务端已配置图像服务，实际生成仍取决于模型权限、网络及额度。' : '暂未配置图像服务密钥。照片生成尚不能执行；示例和图集导出可直接使用。';
     $('provider-host').textContent = state.config.provider_host;
     $('provider-model').textContent = state.config.model;
+    const seconds = state.config.ttl_seconds;
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    const retention = `${minutes ? `${minutes} 分钟` : ''}${remainder ? `${minutes ? ' ' : ''}${remainder} 秒` : ''}`;
+    $('retention-note').textContent = `照片不公开 · 任务创建 ${retention}后失效 · MIT 开源`;
+    $('retention-help').textContent = `任务自创建起 ${retention}后失效，服务器文件最多再延迟 30 秒清理`;
     buildChoices(state.config.expressions);
     renderJob(state.config.latest_job); schedulePoll();
   } catch (error) {

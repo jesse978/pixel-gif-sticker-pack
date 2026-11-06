@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import sys
 import tempfile
+import time
 from zipfile import ZipFile
 
 from PIL import Image
@@ -128,7 +129,49 @@ def main():
         page.locator('#clear-button').click()
         expect(page.locator('#clear-button')).to_be_hidden()
         report['checks'].append('mobile atlas import and HD export; refresh recovery; session isolation; no overflow')
-        mobile.close(); browser.close()
+        mobile.close()
+
+        expiry_context = browser.new_context(viewport={'width': 1000, 'height': 900})
+        for phase in ['review', 'completed']:
+            config = expiry_context.request.get(args.url+'/api/config').json()
+            job = expiry_context.request.post(args.url+'/api/demo', data={'expressions':[{'id':'happy','caption':'开心'}]}).json()
+            deadline = time.monotonic()+30
+            while time.monotonic() < deadline:
+                job = expiry_context.request.get(args.url+f"/api/jobs/{job['id']}").json()
+                if job['status']=='review': break
+                assert job['status']!='failed', job
+                time.sleep(.05)
+            assert job['status']=='review'
+            if phase=='completed':
+                expiry_context.request.post(args.url+f"/api/jobs/{job['id']}/export", data={'reviewed':True})
+                while time.monotonic() < deadline:
+                    job = expiry_context.request.get(args.url+f"/api/jobs/{job['id']}").json()
+                    if job['status']=='completed': break
+                    assert job['status']!='failed', job
+                    time.sleep(.05)
+                assert job['status']=='completed'
+            # Exercise browser expiry handling against explicit 410 responses.
+            # Server lifetime boundaries are separately covered by backend tests.
+            job['expires_in_seconds'] = 1
+            config['latest_job'] = job
+            config['ttl_seconds'] = 90
+            page = expiry_context.new_page()
+            page.on('pageerror', lambda error: errors.append(str(error)))
+            page.clock.install()
+            page.route('**/api/config', lambda route, request, payload=config: route.fulfill(json=payload))
+            page.route('**/api/jobs/'+job['id'], lambda route: route.fulfill(status=410,json={'detail':'任务已过期。'}))
+            page.goto(args.url,wait_until='networkidle')
+            page.clock.fast_forward(1500)
+            expect(page.locator('#toast')).to_contain_text('任务已过期')
+            expect(page.locator('#review-area')).to_be_hidden()
+            expect(page.locator('#gif-download')).to_have_attribute('aria-disabled','true')
+            expect(page.locator('#demo-button')).to_be_enabled()
+            expect(page.locator('#retention-note')).to_contain_text('1 分钟 30 秒')
+            expiry_context.request.delete(args.url+'/api/jobs')
+            page.close()
+        expiry_context.close()
+        report['checks'].append('review/completed expiry unlocks UI and disables downloads; retention follows configured TTL')
+        browser.close()
     assert not errors, errors
     report['passed'] = True
     (output/'ui-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))

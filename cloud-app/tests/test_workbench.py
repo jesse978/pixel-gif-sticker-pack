@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 import time
 import unittest
+from unittest.mock import Mock, patch
 from zipfile import ZipFile
 
 from fastapi.testclient import TestClient
@@ -171,6 +172,68 @@ class WorkbenchTests(unittest.TestCase):
     def test_upload_limit_is_enforced(self):
         response = self.client.post("/api/demo", content=b'x' * (MAX_UPLOAD + 600_000))
         self.assertEqual(response.status_code, 413)
+
+    def test_late_job_remains_accessible_after_original_cookie_deadline(self):
+        browser_time = Mock(wraps=time)
+        start = int(time.time())
+        browser_time.time.return_value = start
+        # Advance only the browser cookie jar, without waiting an hour or changing
+        # asyncio/HTTP timeouts. The newly created server job is still valid.
+        with patch("http.cookiejar.time", browser_time):
+            self.client.get("/api/config")
+            owner = self.client.cookies.get("sticker_session")
+            browser_time.time.return_value = start + self.settings.ttl_seconds + 299
+            job = self.create_demo(1)
+            browser_time.time.return_value += 2
+            response = self.client.get(f"/api/jobs/{job['id']}")
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(self.client.cookies.get("sticker_session"), owner)
+            self.assertEqual(self.client.get(job["atlas_url"]).status_code, 200)
+
+    def test_api_reads_renew_same_cookie_without_extending_job_deadline(self):
+        job = self.create_demo(1)
+        owner = self.client.cookies.get("sticker_session")
+        expires = job["expires_at"]
+        response = self.client.get(job["atlas_url"])
+        cookie = response.headers.get("set-cookie", "")
+        self.assertIn(f"sticker_session={owner}", cookie)
+        self.assertIn(f"Max-Age={self.settings.ttl_seconds + 300}", cookie)
+        self.assertIn("HttpOnly", cookie)
+        self.assertIn("SameSite=strict", cookie)
+        self.assertEqual(self.client.get(f"/api/jobs/{job['id']}").json()["expires_at"], expires)
+
+    def test_exact_task_deadline_is_expired_even_with_renewed_cookie(self):
+        job = self.create_demo(1)
+        with patch("app.main.time.time", return_value=job["expires_at"] - 0.01):
+            response = self.client.get(f"/api/jobs/{job['id']}")
+            self.assertEqual(response.status_code, 200)
+            self.assertAlmostEqual(response.json()["expires_in_seconds"], 0.01, places=5)
+        with patch("app.main.time.time", return_value=job["expires_at"]):
+            self.assertEqual(self.client.get(job["atlas_url"]).status_code, 410)
+            self.assertIsNone(self.client.get("/api/config").json()["latest_job"])
+
+    def test_expired_review_is_not_restored_or_counted_as_active(self):
+        job = self.create_demo(1)
+        self.app.state.jobs[job["id"]].created -= self.settings.ttl_seconds + 1
+        self.assertIsNone(self.client.get("/api/config").json()["latest_job"])
+        response = self.client.post("/api/demo", json=pack_options(1))
+        self.assertEqual(response.status_code, 202, response.text)
+
+    def test_expired_jobs_do_not_consume_storage_or_global_admission_limit(self):
+        app = create_app(replace(self.settings, max_stored_jobs=1, max_active_jobs=1))
+        with TestClient(app) as client:
+            old = client.post("/api/demo", json=pack_options(1)).json()
+            app.state.jobs[old["id"]].created -= self.settings.ttl_seconds + 1
+            response = client.post("/api/demo", json=pack_options(1))
+            self.assertEqual(response.status_code, 202, response.text)
+            self.assertNotEqual(response.json()["id"], old["id"])
+            self.assertEqual(client.get(f"/api/jobs/{old['id']}").status_code, 410)
+
+    def test_job_metadata_has_server_relative_expiry_and_exact_configured_ttl(self):
+        job = self.create_demo(1)
+        self.assertGreater(job["expires_in_seconds"], 0)
+        self.assertLessEqual(job["expires_in_seconds"], self.settings.ttl_seconds)
+        self.assertEqual(self.client.get("/api/config").json()["ttl_seconds"], self.settings.ttl_seconds)
 
 
 class PhotoPipelineTests(unittest.TestCase):

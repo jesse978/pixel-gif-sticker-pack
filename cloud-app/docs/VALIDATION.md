@@ -8,10 +8,15 @@ Pillow 12.3.0, FastAPI 0.141.1, Playwright 1.62.0 and system Chromium.
 - Upstream: `python3 -m unittest discover -s tests -v` from the repository root:
   **6 passed**. No changes to upstream scripts, references, `SKILL.md`, or `LICENSE`.
 - Cloud wrapper: `python3 -m unittest discover -s tests -v` from `cloud-app/`:
-  **21 passed**. Includes real subprocess execution of the original exporter in
+  **27 passed**. Includes real subprocess execution of the original exporter in
   pixel and HD modes, ZIP integrity, GIF frame timing/loop/alpha, exact first-frame
   PNG extraction, review requirement, session isolation, deletion, expiry,
   invalid/opaque uploads, consent, missing-key handling, EXIF removal and dimensions.
+- Six lifetime regression tests reproduce the original cookie-expiry failure and
+  verify access to late-created jobs, same-cookie renewal without extending job
+  lifetime, exact TTL boundaries, exclusion of expired jobs from restore/admission,
+  and server-relative expiry metadata. A virtual browser cookie jar advances past
+  the original 65-minute deadline without real waiting or billable requests.
 - Provider requests checked using `httpx.MockTransport`: exact reference bytes,
   multipart `image[]`, atlas cell prompts, `input_fidelity` compatibility,
   redacted errors, no automatic retry, and no original-photo/example fallback.
@@ -32,6 +37,9 @@ Pillow 12.3.0, FastAPI 0.141.1, Playwright 1.62.0 and system Chromium.
 - Static PNG preview and individual downloads work.
 - Mobile atlas import exports 512px HD; page refresh restores the same job.
 - A different browser session cannot read result files; clearing removes them.
+- Review and completed views recover when the server reports expiry: downloads
+  are disabled and creation is unlocked. Expiry uses server-relative time, and
+  retention copy follows the configured TTL (including a 90-second test case).
 - No JavaScript page errors.
 
 Screenshots and a replay-only example ZIP are retained in ignored `artifacts/` for
