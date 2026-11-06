@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/WoYun520/pixel-gif-sticker-pack",
+  "commit": "cdd975162fad8acc542fcd0beb5b90e5b4d266ac",
+  "license": "MIT",
+  "entrypoint": "../scripts/export_pack.py",
+  "integration": "Original CLI invoked as a subprocess. No changes to upstream tracked files."
+}

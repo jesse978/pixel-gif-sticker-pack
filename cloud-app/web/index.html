@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="基于 pixel-gif-sticker-pack 原始脚本的真人照片表情包云端工作台。">
+  <meta name="theme-color" content="#285442">
+  <title>表情包工坊 · pixel-gif-sticker-pack</title>
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="表情包工坊首页"><span class="brand-mark">:)</span><span><strong>表情包工坊<span class="brand-dot">.</span></strong><small>PIXEL GIF STICKER PACK / CLOUD</small></span></a>
+    <nav class="top-actions" aria-label="工具导航"><button class="connection-pill" id="connection-button"><span class="status-dot"></span><span id="connection-label">检查连接中</span></button><button class="quiet-button" id="help-button">使用指南 <span aria-hidden="true">↗</span></button><a class="github-link" href="https://github.com/jesse978/pixel-gif-sticker-pack" target="_blank" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a></nav>
+  </header>
+  <main class="page">
+    <section class="intro" aria-label="介绍">
+      <div><p class="eyebrow"><span></span> A LITTLE MORE YOU.</p><h1>每一种情绪，<br class="mobile-break">都可以很<span>「你」</span>。</h1><p class="intro-copy">一张照片，制作一套自己的聊天表情。让原项目完成剩下的事。</p></div>
+      <div class="intro-note"><span class="note-spark">✳</span><p>保留你的样子<br><strong>也放大你的情绪</strong></p><span class="note-arrow" aria-hidden="true">↙</span></div>
+    </section>
+    <ol class="steps" aria-label="制作步骤"><li class="current" data-step="1"><b>01</b><span>选择照片与表情</span></li><li data-step="2"><b>02</b><span>检查透明图集</span></li><li data-step="3"><b>03</b><span>导出你的表情包</span></li></ol>
+
+    <div class="workspace">
+      <section class="settings panel" aria-labelledby="settings-heading">
+        <div class="panel-heading"><h2 id="settings-heading">开始你的创作</h2><span class="little-label">MAKE IT YOURS</span></div>
+        <fieldset id="settings-fields">
+          <div class="section-title"><span class="section-index">1</span><h3>选择素材</h3></div>
+          <div class="source-tabs" role="group" aria-label="素材类型"><button type="button" class="selected" data-source="photo" aria-pressed="true">真人照片</button><button type="button" data-source="atlas" aria-pressed="false">已有透明图集</button></div>
+          <input id="source-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+          <button class="dropzone" id="choose-source" type="button"><span class="upload-icon" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V3m-5 5 5-5 5 5M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg></span><img id="source-thumbnail" alt="所选素材的本地预览" hidden><strong id="upload-title">点击上传，或拖入照片</strong><span id="upload-hint">JPG / PNG / WebP · 最大 10 MB</span><span class="upload-tag" id="upload-tag">一张清晰的单人正面照，效果更好</span></button>
+          <p class="local-note"><span aria-hidden="true">⌑</span><span id="local-note">选择照片时仅在浏览器预览，点击生成后才上传。</span></p>
+
+          <div class="section-title"><span class="section-index">2</span><h3>想要哪种风格？</h3></div>
+          <div class="styles" role="radiogroup" aria-label="表情风格">
+            <label class="style-option"><input type="radio" name="style" value="real" checked><span class="style-art real-art" aria-hidden="true">☺</span><strong>真人原貌</strong><small>保留真实特征</small></label>
+            <label class="style-option"><input type="radio" name="style" value="chibi"><span class="style-art chibi-art" aria-hidden="true">✿</span><strong>Q 版手绘</strong><small>可爱一点点</small></label>
+            <label class="style-option"><input type="radio" name="style" value="pixel"><span class="style-art pixel-art" aria-hidden="true">▦</span><strong>复古像素</strong><small>像素颗粒感</small></label>
+          </div>
+          <p class="field-help" id="style-note">真人与手绘导出 512 × 512，像素风导出 320 × 320。</p>
+
+          <div class="section-title expression-title"><span class="section-index">3</span><h3>挑选表情，写点心里话</h3><span id="selection-count">6 / 8</span></div>
+          <div class="expressions" id="expression-options"></div>
+          <p class="field-help">每次 1–8 张 · 点击勾选，文案可直接修改 · 每条最多 12 字</p>
+          <div class="finishing"><label>循环动效<select id="motion"><option value="jump">轻轻弹跳</option><option value="sway">左右摇摆</option><option value="breathe">柔和呼吸</option></select></label><div><span class="control-label">文字颜色</span><div class="swatches" role="radiogroup" aria-label="文字颜色"><label class="swatch dark"><input name="ink" type="radio" value="dark" checked><span aria-label="墨绿"></span></label><label class="swatch coral"><input name="ink" type="radio" value="coral"><span aria-label="珊瑚红"></span></label><label class="swatch purple"><input name="ink" type="radio" value="purple"><span aria-label="紫色"></span></label></div></div></div>
+          <label class="consent"><input id="consent" type="checkbox"><span id="consent-label">我有权使用该照片，同意将它发送至已配置的图像服务生成图集，并承担相应 API 费用。</span></label>
+        </fieldset>
+        <button class="primary-button generate-button" id="generate-button" disabled><span aria-hidden="true">✦</span><span id="generate-label">生成姿势图集</span><span aria-hidden="true">→</span></button>
+        <p class="generation-hint" id="generation-hint">正在检查服务配置…</p>
+        <button class="sample-button" id="demo-button">先用开源示例体验 <span aria-hidden="true">↗</span></button>
+      </section>
+
+      <section class="preview panel" aria-labelledby="preview-heading">
+        <div class="preview-heading"><div><p class="eyebrow">YOUR LITTLE MOODBOARD</p><h2 id="preview-heading">你的情绪，即将上线<span>✳</span></h2></div><span class="preview-badge" id="preview-badge">开源项目示例</span></div>
+        <div class="preview-toolbar"><div class="format-toggle" role="group" aria-label="预览格式"><button class="selected" data-format="gif" aria-pressed="true"><span aria-hidden="true">▷</span> GIF 动图</button><button data-format="png" aria-pressed="false">PNG 静图</button></div><button class="quiet-button clear-button" id="clear-button" hidden>清除本次任务</button><span class="canvas-label" id="canvas-label">透明背景 / 循环播放</span></div>
+
+        <div class="job-status" id="job-status" role="status" aria-live="polite" hidden><span class="spinner"></span><div><strong id="job-status-title"></strong><p id="job-status-detail"></p></div></div>
+        <div class="error-box" id="error-box" role="alert" hidden></div>
+        <div class="sticker-grid" id="sticker-grid"></div>
+        <div class="review-area" id="review-area" hidden><div class="review-note"><strong>先看一眼，确认每一格都对</strong><p>按从左到右、从上到下的顺序，检查人物是否像你、动作是否对应，以及头发和手有没有跨格。</p></div><div class="atlas-checker"><img id="atlas-preview" alt="待检查的透明姿势图集"></div><div class="cell-map" id="cell-map"></div><label class="review-consent"><input type="checkbox" id="review-checkbox">我已检查人物、表情顺序、透明背景和边缘</label><button class="primary-button" id="export-button" disabled>确认图集，使用原项目导出 <span aria-hidden="true">→</span></button><p class="field-help">不满意时可清除任务后重新准备素材；不会自动重复调用付费接口。</p></div>
+
+        <div class="preview-caption" id="preview-caption"><span class="caption-dot"></span><span>以上为仓库自带的鲸鱼娘示例，与上传的照片无关。</span></div>
+        <div class="download-area"><div><strong id="download-heading">把你的情绪打包带走</strong><p id="download-description">透明 GIF + 离线预览页，原项目一键导出。</p></div><div class="download-actions"><a class="secondary-button" id="png-download" hidden download>PNG 合集 ↓</a><a class="primary-button disabled" id="gif-download" aria-disabled="true">下载 GIF 合集 <span aria-hidden="true">↓</span></a></div></div>
+        <div class="engine-note"><span class="engine-mark" aria-hidden="true">{ }</span><p>直接使用 <a href="https://github.com/WoYun520/pixel-gif-sticker-pack" target="_blank" rel="noreferrer">pixel-gif-sticker-pack</a> 原始导出器。<br>24 帧 / 约 1.92 秒循环 · 动效为贴纸形变，文案保持固定。</p></div>
+      </section>
+    </div>
+    <footer><span>一张照片，一套专属的小情绪。</span><span>照片不公开 · 任务约 60 分钟后删除 · MIT 开源</span></footer>
+  </main>
+
+  <dialog id="connection-dialog"><div class="dialog-heading"><h2>图像服务连接</h2><button class="icon-button close-dialog" aria-label="关闭">×</button></div><p id="connection-summary"></p><dl class="connection-details"><div><dt>服务地址</dt><dd id="provider-host"></dd></div><div><dt>图像模型</dt><dd id="provider-model"></dd></div><div><dt>合成引擎</dt><dd>原项目 export_pack.py</dd></div></dl><p>在云端服务的 <code>cloud-app/.env</code> 中配置密钥，然后重启：</p><pre>OPENAI_API_KEY=你的图像服务密钥
+OPENAI_IMAGE_MODEL=gpt-image-1.5</pre><p class="dialog-note">密钥只留在服务端。选择照片不会调用模型，点击生成图集才会发起一次图像编辑请求。费用和素材保留规则以所选服务商为准。当前版本不自动重试付费请求。</p><p class="dialog-note">没有密钥，也可以导入透明姿势图集，再用原项目合成、预览和导出。导出与示例体验不调用付费模型。</p></dialog>
+  <dialog id="help-dialog"><div class="dialog-heading"><h2>从照片到表情包</h2><button class="icon-button close-dialog" aria-label="关闭">×</button></div><ol class="help-list"><li><b>选择素材与表情</b><p>用一张清晰、获准使用的单人照片。也可以导入已生成的透明图集：1 张用 1×1；2 张用 2×1；3–4 张用 2×2；5–8 张用 4×2，空格留透明。</p></li><li><b>生成并检查图集</b><p>图像服务根据同一照片生成不同姿势。人工确认人物特征、动作、格子顺序和透明边缘，避免把错误素材带进导出。</p></li><li><b>使用原项目导出</b><p>原始 export_pack.py 负责加字、预设动效、透明循环 GIF、技术校验、离线预览页及 ZIP。PNG 是最终 GIF 的首帧。</p></li></ol><p class="dialog-note">图像模型可能出现人物细节或姿势变化；相似度需要实际照片验收。此版本使用原项目的轻动效流程，微信等平台的大小与上架要求需另行核对。选择或生成的素材只对本次浏览器会话可见，可随时清除，服务器约 60 分钟后自动删除；外部图像服务的保留规则另计。</p><a href="https://github.com/jesse978/pixel-gif-sticker-pack" target="_blank" rel="noreferrer">查看你的项目仓库 ↗</a></dialog>
+  <dialog id="sticker-dialog" class="sticker-dialog"><div class="dialog-heading"><h2 id="sticker-title">表情预览</h2><button class="icon-button close-dialog" aria-label="关闭">×</button></div><div class="large-sticker checker"><img id="large-sticker" alt=""></div><div class="modal-actions" id="sticker-downloads"></div></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
